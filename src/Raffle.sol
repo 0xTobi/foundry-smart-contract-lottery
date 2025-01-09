@@ -56,6 +56,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
     error Raffle__SendMoreToEnterRaffle();
     error Raffle__TransferFailed();
     error Raffle__RaffleNotOpen();
+    error Raffle__TooEarly();
 
     /* Type Declarations */
     enum RaffleState {
@@ -106,6 +107,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
             revert Raffle__SendMoreToEnterRaffle();
         }
 
+        // Check if the raffle is open
         if (s_raffleState != RaffleState.OPEN) {
             revert Raffle__RaffleNotOpen();
         }
@@ -122,11 +124,12 @@ contract Raffle is VRFConsumerBaseV2Plus {
     // 3. Be automatically called
     function pickWinner() external {
         if ((block.timestamp - s_lastTimeStamp) < i_interval) {
-            revert();
+            revert Raffle__TooEarly();
         }
 
         s_raffleState = RaffleState.CALCULATING;
 
+        // Request the random number
         VRFV2PlusClient.RandomWordsRequest memory request = VRFV2PlusClient.RandomWordsRequest({
             keyHash: i_keyHash,                             // Gas you're willing to pay.
             subId: i_subscriptionId,                        // How we fund the gas for working with chainlink vrf.
@@ -144,15 +147,21 @@ contract Raffle is VRFConsumerBaseV2Plus {
         s_recentWinner = recentWinner;   
         
         s_raffleState = RaffleState.OPEN;
+
+        // Reset the players array
+        s_players = new address payable[](0);
+
+        // Reset the last time stamp
+        s_lastTimeStamp = block.timestamp;
         
         (bool success, ) = recentWinner.call{value: address(this).balance}("");     // Send all the balance of the contract to the winner.
         if (!success) {
             revert Raffle__TransferFailed();
         }
-        emit WinnerPicked(recentWinner);                                            // Emit an event to indicate that the winner has been picked.
+        emit WinnerPicked(s_recentWinner);                                            // Emit an event to indicate that the winner has been picked.
     }
 
-    // Getters
+    // Getters 
     function getEntrancefee() external view returns (uint256) {
         return i_entranceFee;
     }
