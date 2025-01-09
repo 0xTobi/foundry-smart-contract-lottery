@@ -102,7 +102,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
     }
 
     function enterRaffle() external payable {
-        // require(msg.value >= i_entranceFee, "Not enough ETH Sent");
+        // Check if the user has sent enough ETH
         if (msg.value < i_entranceFee) {
             revert Raffle__SendMoreToEnterRaffle();
         }
@@ -112,10 +112,10 @@ contract Raffle is VRFConsumerBaseV2Plus {
             revert Raffle__RaffleNotOpen();
         }
 
+        // Effect
         s_players.push(payable(msg.sender));
-        // Rule of thumb to always follow whenever you update something in storage -- Emit an event
-        // 1. Makes migration easier
-        // 2. Makes frontend indexing easier
+
+        // Interaction
         emit RaffleEntered(msg.sender);
     }
 
@@ -123,12 +123,15 @@ contract Raffle is VRFConsumerBaseV2Plus {
     // 2. Use random number to pick a player
     // 3. Be automatically called
     function pickWinner() external {
+        // Check if the raffle is open
         if ((block.timestamp - s_lastTimeStamp) < i_interval) {
             revert Raffle__TooEarly();
         }
 
+        // Effect
         s_raffleState = RaffleState.CALCULATING;
 
+        
         // Request the random number
         VRFV2PlusClient.RandomWordsRequest memory request = VRFV2PlusClient.RandomWordsRequest({
             keyHash: i_keyHash,                             // Gas you're willing to pay.
@@ -144,21 +147,18 @@ contract Raffle is VRFConsumerBaseV2Plus {
     function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal virtual override {
         uint256 indexOfWinner = randomWords[0] % s_players.length;                // Get the index of the winner.
         address payable recentWinner = s_players[indexOfWinner];                    // Get the address of the winner.
+
         s_recentWinner = recentWinner;   
-        
         s_raffleState = RaffleState.OPEN;
-
-        // Reset the players array
         s_players = new address payable[](0);
-
-        // Reset the last time stamp
         s_lastTimeStamp = block.timestamp;
+        emit WinnerPicked(s_recentWinner);
         
-        (bool success, ) = recentWinner.call{value: address(this).balance}("");     // Send all the balance of the contract to the winner.
+        // Send all the balance of the contract to the winner.
+        (bool success, ) = recentWinner.call{value: address(this).balance}("");     
         if (!success) {
             revert Raffle__TransferFailed();
         }
-        emit WinnerPicked(s_recentWinner);                                            // Emit an event to indicate that the winner has been picked.
     }
 
     // Getters 
