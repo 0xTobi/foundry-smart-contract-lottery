@@ -170,10 +170,10 @@ contract Raffle is VRFConsumerBaseV2Plus {
             numWords: NUM_WORD, // How many random numbers we want to get.
             extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false})) // We don't want to pay for the gas with LINK, we want to pay for the gas with ETH.
         });
-        uint256 requestId = s_vrfCoordinator.requestRandomWords(request);
+        s_vrfCoordinator.requestRandomWords(request);
     }
 
-    function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal virtual override {
+    function fulfillRandomWords(uint256 /* requestId */, uint256[] calldata randomWords) internal virtual override {
         uint256 indexOfWinner = randomWords[0] % s_players.length; // Get the index of the winner.
         address payable recentWinner = s_players[indexOfWinner]; // Get the address of the winner.
 
