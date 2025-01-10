@@ -50,18 +50,19 @@ import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/V
  * @notice This contract is for creating a sample raffle contract
  * @dev This implements the Chainlink VRF Version 2
  */
-
 contract Raffle is VRFConsumerBaseV2Plus {
     /* Errors */
     error Raffle__SendMoreToEnterRaffle();
     error Raffle__TransferFailed();
     error Raffle__RaffleNotOpen();
     error Raffle__TooEarly();
+    error Raffle__UpkeepNotNeeded();
 
     /* Type Declarations */
     enum RaffleState {
-        OPEN,   // 0
+        OPEN, // 0
         CALCULATING // 1
+
     }
 
     /* State Variables */
@@ -119,49 +120,77 @@ contract Raffle is VRFConsumerBaseV2Plus {
         emit RaffleEntered(msg.sender);
     }
 
-    // 1. Get a random numver
-    // 2. Use random number to pick a player
-    // 3. Be automatically called
-    function pickWinner() external {
-        // Check if the raffle is open
-        if ((block.timestamp - s_lastTimeStamp) < i_interval) {
-            revert Raffle__TooEarly();
+    // When should the winner be picked?
+    /**
+     * @dev This is the function that Chainlink Automation will call to check if we should pick a winner.
+     * The following must be true for the function to return true:
+     * 1. The time has passed since the last raffle.
+     * 2. The raffle is open.
+     * 3. The contract has enough balance to pay out the winner.
+     * 4. There are players in the raffle.
+     * @param - ignored by this contract.
+     * @return upkeepNeeded - true if the conditions are met, false otherwise.
+     * @return performData - empty bytes.
+     */
+    function checkUpkeep(bytes memory /* checkData */ )
+        public
+        view
+        returns (bool upkeepNeeded, bytes memory /* performData */ )
+    {
+        bool timeHasPassed = (block.timestamp - s_lastTimeStamp) >= i_interval;
+        bool raffleIsOpen = s_raffleState == RaffleState.OPEN;
+        bool raffleHasBalance = address(this).balance > 0;
+        bool raffleHasPlayers = s_players.length > 0;
+
+        upkeepNeeded = timeHasPassed && raffleIsOpen && raffleHasBalance && raffleHasPlayers;
+
+        return (upkeepNeeded, "");
+    }
+
+    // 1. Get a random numver ✅
+    // 2. Use random number to pick a player ✅
+    // 3. Be automatically called ✅
+    
+    function performUpkeep(bytes calldata /* performData */) external {
+        // Check
+        (bool upkeepNeeded, ) = checkUpkeep("");
+        if (!upkeepNeeded) {
+            revert Raffle__UpkeepNotNeeded();
         }
 
         // Effect
         s_raffleState = RaffleState.CALCULATING;
 
-        
         // Request the random number
         VRFV2PlusClient.RandomWordsRequest memory request = VRFV2PlusClient.RandomWordsRequest({
-            keyHash: i_keyHash,                             // Gas you're willing to pay.
-            subId: i_subscriptionId,                        // How we fund the gas for working with chainlink vrf.
-            requestConfirmations: REQUEST_CONFIRMATIONS,    // How many blocks we should wait before chainlink gives us the random number.
-            callbackGasLimit: i_callbackGasLimit,           // Max amount of gas you're willing to spend - So we don't have to spend too much gas.
-            numWords: NUM_WORD,                             // How many random numbers we want to get.
-            extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}))    // We don't want to pay for the gas with LINK, we want to pay for the gas with ETH.
+            keyHash: i_keyHash, // Gas you're willing to pay.
+            subId: i_subscriptionId, // How we fund the gas for working with chainlink vrf.
+            requestConfirmations: REQUEST_CONFIRMATIONS, // How many blocks we should wait before chainlink gives us the random number.
+            callbackGasLimit: i_callbackGasLimit, // Max amount of gas you're willing to spend - So we don't have to spend too much gas.
+            numWords: NUM_WORD, // How many random numbers we want to get.
+            extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false})) // We don't want to pay for the gas with LINK, we want to pay for the gas with ETH.
         });
         uint256 requestId = s_vrfCoordinator.requestRandomWords(request);
     }
 
     function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal virtual override {
-        uint256 indexOfWinner = randomWords[0] % s_players.length;                // Get the index of the winner.
-        address payable recentWinner = s_players[indexOfWinner];                    // Get the address of the winner.
+        uint256 indexOfWinner = randomWords[0] % s_players.length; // Get the index of the winner.
+        address payable recentWinner = s_players[indexOfWinner]; // Get the address of the winner.
 
-        s_recentWinner = recentWinner;   
+        s_recentWinner = recentWinner;
         s_raffleState = RaffleState.OPEN;
         s_players = new address payable[](0);
         s_lastTimeStamp = block.timestamp;
         emit WinnerPicked(s_recentWinner);
-        
+
         // Send all the balance of the contract to the winner.
-        (bool success, ) = recentWinner.call{value: address(this).balance}("");     
+        (bool success,) = recentWinner.call{value: address(this).balance}("");
         if (!success) {
             revert Raffle__TransferFailed();
         }
     }
 
-    // Getters 
+    // Getters
     function getEntrancefee() external view returns (uint256) {
         return i_entranceFee;
     }
