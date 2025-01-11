@@ -5,9 +5,12 @@ import {Script} from "forge-std/Script.sol";
 
 abstract contract CodeConstants {
     uint256 public constant ETH_SEPOLIA_CHAIN_ID = 11155111;
+    uint256 public constant LOCAL_CHAIN_ID = 31337;
 }
 
 contract HelperConfig is CodeConstants, Script {
+    error HelperConfig__invalidChainId();
+
     struct NetworkConfig {
         uint256 entranceFee;
         uint256 interval;
@@ -17,15 +20,21 @@ contract HelperConfig is CodeConstants, Script {
         uint32 callbackGasLimit;
     }
 
-    NetworkConfig public localNetworkConfig;
-    mapping(uint256 chainId => NetworkConfig) public networkConfigs;
+    NetworkConfig public activeNetworkConfig;
+    mapping(uint256 chainId => NetworkConfig) public networkConfigs;    // Holds the config for each chain
 
     constructor() {
         networkConfigs[ETH_SEPOLIA_CHAIN_ID] = getSepoliaEthConfig();
     }
 
     function getConfigByChainId(uint256 chainId) public returns(NetworkConfig memory) {
-        
+        if (networkConfigs[chainId].vrfCoordinator != address(0)) {
+            return networkConfigs[chainId];
+        } else if (chainId == LOCAL_CHAIN_ID) { 
+            // getOrCreateAnvilConfig;
+        } else {
+            revert HelperConfig__invalidChainId();
+        }
     }
 
     function getSepoliaEthConfig() public pure returns (NetworkConfig memory) {
@@ -39,4 +48,11 @@ contract HelperConfig is CodeConstants, Script {
         });
     }
 
+    function getOrCreateAnvilConfig() public returns(NetworkConfig memory){
+        if (activeNetworkConfig.vrfCoordinator != address(0)) {
+            return activeNetworkConfig;
+        }
+
+        
+    }
 }
