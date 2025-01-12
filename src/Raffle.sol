@@ -150,10 +150,10 @@ contract Raffle is VRFConsumerBaseV2Plus {
     // 1. Get a random numver ✅
     // 2. Use random number to pick a player ✅
     // 3. Be automatically called ✅
-    
-    function performUpkeep(bytes calldata /* performData */) external {
+
+    function performUpkeep(bytes calldata /* performData */ ) external {
         // Check
-        (bool upkeepNeeded, ) = checkUpkeep("");
+        (bool upkeepNeeded,) = checkUpkeep("");
         if (!upkeepNeeded) {
             revert Raffle__UpkeepNotNeeded(address(this).balance, s_players.length, uint256(s_raffleState));
         }
@@ -173,7 +173,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
         s_vrfCoordinator.requestRandomWords(request);
     }
 
-    function fulfillRandomWords(uint256 /* requestId */, uint256[] calldata randomWords) internal virtual override {
+    function fulfillRandomWords(uint256, /* requestId */ uint256[] calldata randomWords) internal virtual override {
         uint256 indexOfWinner = randomWords[0] % s_players.length; // Get the index of the winner.
         address payable recentWinner = s_players[indexOfWinner]; // Get the address of the winner.
 
@@ -193,5 +193,13 @@ contract Raffle is VRFConsumerBaseV2Plus {
     // Getters
     function getEntrancefee() external view returns (uint256) {
         return i_entranceFee;
+    }
+
+    function getRaffleState() external view returns (RaffleState) {
+        return s_raffleState;
+    }
+
+    function getPlayers() external view returns (address payable[] memory) {
+        return s_players;
     }
 }
