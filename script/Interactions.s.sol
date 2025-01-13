@@ -4,8 +4,10 @@ pragma solidity ^0.8.0;
 import {Script, console2} from "forge-std/Script.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
 import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
+import {CodeConstants} from "./HelperConfig.s.sol";
+import {LinkToken} from "../test/mocks/LinkToken.sol";
 
-contract CreateSubscription is Script {
+contract CreateSubscription is Script, CodeConstants {
     function createSubscriptionUsingConfig() public returns (uint256, address) {
         HelperConfig helperConfig = new HelperConfig();
         address vrfCoordinator = helperConfig.getConfig().vrfCoordinator;
@@ -40,17 +42,25 @@ contract FundSubscription is Script {
         HelperConfig helperConfig = new HelperConfig();
         address vrfCoordinator = helperConfig.getConfig().vrfCoordinator;
         uint256 subscriptionId = helperConfig.getConfig().subscriptionId;
-        address link = helperConfig.getConfig().link;
+        address linkToken = helperConfig.getConfig().link;
         
         // Fund the subscription using the vrfCoordinator...
-        fundSubscription(vrfCoordinator, subscriptionId);
+        fundSubscription(vrfCoordinator, subscriptionId, linkToken);
     }
 
-    function fundSubscription(address vrfCoordinator, uint256 subId) public {
+    function fundSubscription(address vrfCoordinator, uint256 subscriptionId, address linkToken) public {
         console2.log("Funding subscription on chain Id: %s", block.chainid);
-        vm.startBroadcast();
-        VRFCoordinatorV2_5Mock(vrfCoordinator).fundSubscription(subId, FUND_AMOUNT);
-        vm.stopBroadcast();
+        console2.log("Using vrfCoordinator: %s", vrfCoordinator);
+
+        if (block.chainId == LOCAL_CHAIN_ID) {
+            vm.startBroadcast();
+            VRFCoordinatorV2_5Mock(vrfCoordinator).fundSubscription(subscriptionId, FUND_AMOUNT);
+            vm.stopBroadcast();
+        } else {
+            vm.startBroadcast();
+            LinkToken(linkToken).transferAndCall(vrfCoordinator, FUND_AMOUNT, abi.encode(subscriptionId));
+            vm.stopBroadcast();
+        }
 
         console2.log("Subscription funded with 1 ether");
     }
