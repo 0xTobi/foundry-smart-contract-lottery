@@ -31,3 +31,31 @@ contract CreateSubscription is Script {
         createSubscriptionUsingConfig();
     }
 }
+
+
+contract FundSubscription is Script {
+    uint256 public constant FUND_AMOUNT = 1 ether; // 1 LINK
+
+    function fundSubscriptionUsingConfig() public {
+        HelperConfig helperConfig = new HelperConfig();
+        address vrfCoordinator = helperConfig.getConfig().vrfCoordinator;
+        uint256 subscriptionId = helperConfig.getConfig().subscriptionId;
+        address link = helperConfig.getConfig().link;
+        
+        // Fund the subscription using the vrfCoordinator...
+        fundSubscription(vrfCoordinator, subscriptionId);
+    }
+
+    function fundSubscription(address vrfCoordinator, uint256 subId) public {
+        console2.log("Funding subscription on chain Id: %s", block.chainid);
+        vm.startBroadcast();
+        VRFCoordinatorV2_5Mock(vrfCoordinator).fundSubscription(subId, FUND_AMOUNT);
+        vm.stopBroadcast();
+
+        console2.log("Subscription funded with 1 ether");
+    }
+
+    function run() public {
+        fundSubscriptionUsingConfig();
+    }
+}
