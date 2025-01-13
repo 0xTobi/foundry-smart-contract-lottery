@@ -27,7 +27,7 @@ contract RaffleTest is Test {
         DeployRaffle deployer = new DeployRaffle();
         (raffle, helperConfig) = deployer.deployContract();
 
-        HelperConfig.NetworkConfig memory config = helperConfig.getConfig(); 
+        HelperConfig.NetworkConfig memory config = helperConfig.getConfig();
         entranceFee = config.entranceFee;
         interval = config.interval;
         vrfCoordinator = config.vrfCoordinator;
@@ -49,7 +49,7 @@ contract RaffleTest is Test {
     function testEnterRaffleReverrsWhenYouDontPayEnough() public {
         // Arrange
         vm.prank(PLAYER);
-        vm.expectRevert(Raffle.Raffle__SendMoreToEnterRaffle.selector);     // Revert if not enough funds
+        vm.expectRevert(Raffle.Raffle__SendMoreToEnterRaffle.selector); // Revert if not enough funds
 
         // Action
         raffle.enterRaffle{value: 0.001 ether}();
@@ -71,13 +71,29 @@ contract RaffleTest is Test {
 
     function testEnterRaffleEmitsEvent() public {
         vm.prank(PLAYER);
-        
+
         // vm.expectEmit(bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData, address emitter);
         // checkTopic1 (true): The first indexed parameter (address indexed player) of the RaffleEntered event will be checked against the actual emitted event.
-        vm.expectEmit(true, false, false, false, address(raffle));  // Hey, we're expecting an event to be emitted.
-        emit RaffleEntered(PLAYER);                                 // This is the event that should be emitted when a player enters the raffle
+        vm.expectEmit(true, false, false, false, address(raffle));
+        emit RaffleEntered(PLAYER);
 
         // Assert
+        raffle.enterRaffle{value: entranceFee}();
+    }
+
+    function testDontAllowPlayersEnterWhileRaffleIsCalculating() public {
+        // Arrange
+        vm.prank(PLAYER);
+        raffle.enterRaffle{value: entranceFee}();
+
+        // Action
+        vm.warp(block.timestamp + interval + 1); // Move time forward to simulate passing the interval
+        vm.roll(block.number + 1); // Mine a new block to simulate blockchain activity
+        raffle.performUpkeep(""); // Call `performUpkeep` to transition the raffle state to `CALCULATING`
+
+        // Assert
+        vm.expectRevert(Raffle.Raffle__RaffleNotOpen.selector);
+        vm.prank(PLAYER);
         raffle.enterRaffle{value: entranceFee}();
     }
 }
