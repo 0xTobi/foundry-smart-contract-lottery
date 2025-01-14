@@ -11,9 +11,9 @@ contract CreateSubscription is Script {
     function createSubscriptionUsingConfig() public returns (uint256, address) {
         HelperConfig helperConfig = new HelperConfig();
         address vrfCoordinator = helperConfig.getConfig().vrfCoordinator;
-        
+
         // Create a subscription using the vrfCoordinator...
-        (uint256 subId, ) = createSubscription(vrfCoordinator);
+        (uint256 subId,) = createSubscription(vrfCoordinator);
         return (subId, vrfCoordinator);
     }
 
@@ -34,7 +34,6 @@ contract CreateSubscription is Script {
     }
 }
 
-
 contract FundSubscription is Script, CodeConstants {
     uint256 public constant FUND_AMOUNT = 5 ether; // 5 LINK
 
@@ -43,14 +42,14 @@ contract FundSubscription is Script, CodeConstants {
         address vrfCoordinator = helperConfig.getConfig().vrfCoordinator;
         uint256 subscriptionId = helperConfig.getConfig().subscriptionId;
         address linkToken = helperConfig.getConfig().link;
-        
+
         // Fund the subscription using the vrfCoordinator...
         fundSubscription(vrfCoordinator, subscriptionId, linkToken);
     }
 
     function fundSubscription(address vrfCoordinator, uint256 subscriptionId, address linkToken) public {
-        console2.log("Funding subscription on chain Id: %s", block.chainid);
-        console2.log("Using vrfCoordinator: %s", vrfCoordinator);
+        console2.log("Funding subscription on chain Id: ", block.chainid);
+        console2.log("Using vrfCoordinator: ", vrfCoordinator);
 
         if (block.chainid == LOCAL_CHAIN_ID) {
             vm.startBroadcast();
@@ -75,17 +74,23 @@ contract AddConsumer is Script {
         HelperConfig helperConfig = new HelperConfig();
         address vrfCoordinator = helperConfig.getConfig().vrfCoordinator;
         uint256 subscriptionId = helperConfig.getConfig().subscriptionId;
-        
+
         // Add the consumer using the vrfCoordinator...
-        addConsumer(mostRecentlyDeployedRaffleContract ,vrfCoordinator, subscriptionId);
+        addConsumer(mostRecentlyDeployedRaffleContract, vrfCoordinator, subscriptionId);
     }
 
     function addConsumer(address contractToAddToVrf, address vrfCoordinator, uint256 subscriptionId) public {
+        console2.log("Adding consumer contract; %s", contractToAddToVrf);
+        console2.log("Using vrfCoordinator: %s", vrfCoordinator);
+        console2.log("On ChainId: %s", block.chainid);
 
+        vm.startBroadcast();
+        VRFCoordinatorV2_5Mock(vrfCoordinator).addConsumer(subscriptionId, contractToAddToVrf);
+        vm.stopBroadcast();
     }
 
     function run() public {
-        address mostRecentlyDeployedRaffleContract = DevOpsTools.get_most_recent_deployment(Raffle, block.chainid);
+        address mostRecentlyDeployedRaffleContract = DevOpsTools.get_most_recent_deployment("Raffle", block.chainid);
         addConsumerUsingConfig(mostRecentlyDeployedRaffleContract);
     }
 }

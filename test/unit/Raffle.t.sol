@@ -96,4 +96,35 @@ contract RaffleTest is Test {
         vm.prank(PLAYER);
         raffle.enterRaffle{value: entranceFee}();
     }
+
+    /*//////////////////////////////////////////////////////////////
+                              CHECK UPKEEP
+    //////////////////////////////////////////////////////////////*/
+
+    function testCheckUpkeepReturnsFalseIfItHasNoBalance() public {
+        // Arrange
+        vm.warp(block.timestamp + interval + 1); // Move time forward to simulate passing the interval
+        vm.roll(block.number + 1); // Mine a new block to simulate blockchain activity
+
+        // Act
+        (bool upkeepNeeded,) = raffle.checkUpkeep("");
+
+        // Assert
+        assert(!upkeepNeeded);
+    }
+
+    function testCheckUpkeepReturnsFalseIfRaffleIsNotOpen() public {
+        // Arrange
+        vm.prank(PLAYER);
+        raffle.enterRaffle{value: entranceFee}();
+
+        // Action
+        vm.warp(block.timestamp + interval + 1); // Move time forward to simulate passing the interval
+        vm.roll(block.number + 1); // Mine a new block to simulate blockchain activity
+        raffle.performUpkeep(""); // Call `performUpkeep` to transition the raffle state to `CALCULATING`
+
+        // Assert
+        (bool upkeepNeeded,) = raffle.checkUpkeep("");
+        assert(!upkeepNeeded);
+    }
 }
