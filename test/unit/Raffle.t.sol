@@ -122,9 +122,36 @@ contract RaffleTest is Test {
         vm.warp(block.timestamp + interval + 1); // Move time forward to simulate passing the interval
         vm.roll(block.number + 1); // Mine a new block to simulate blockchain activity
         raffle.performUpkeep(""); // Call `performUpkeep` to transition the raffle state to `CALCULATING`
+        (bool upkeepNeeded,) = raffle.checkUpkeep("");
 
         // Assert
-        (bool upkeepNeeded,) = raffle.checkUpkeep("");
         assert(!upkeepNeeded);
+    }
+
+    // More Tests
+    function testCheckUpkeepReturnsFalseIfEnoughTimeHasntPassed() public {
+        // Arrange
+        vm.prank(PLAYER);
+        raffle.enterRaffle{value: entranceFee}();   // Raffle has players, balance and is open
+
+        // Action
+        (bool upkeepNeeded,) = raffle.checkUpkeep("");
+
+        // Assert
+        assert(!upkeepNeeded);
+    }
+
+    function testCheckUpkeepReturnsTrueIfParametersAreMet() public {
+        // Arrange
+        vm.prank(PLAYER);
+        raffle.enterRaffle{value: entranceFee}();   //Raffle has players, balance and is open
+
+        // Action
+        vm.warp(block.timestamp + interval + 1);    // Raffle has passed the interval
+        vm.roll(block.number + 1); 
+        (bool upkeepNeeded,) = raffle.checkUpkeep("");
+
+        // Assert
+        assert(upkeepNeeded);
     }
 }
