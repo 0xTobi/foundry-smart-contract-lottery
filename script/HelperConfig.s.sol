@@ -83,7 +83,7 @@ contract HelperConfig is CodeConstants, Script {
             interval: 30,
             vrfCoordinator: address(vrfCoordinatorMock),
             gasLane: 0x474e34a077df58807dbe9c96d3c009b23b3c6d0cce433e59bbf5b34f823bc56c,
-            subscriptionId: 0,
+            subscriptionId: 20625816270307820467168895400560709740503929598222255067811705985244833017117,
             callbackGasLimit: 500000,
             link: address(linkToken)
         });

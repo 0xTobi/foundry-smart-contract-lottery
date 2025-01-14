@@ -2,12 +2,12 @@
 pragma solidity ^0.8.0;
 
 import {Script, console2} from "forge-std/Script.sol";
-import {HelperConfig} from "./HelperConfig.s.sol";
+import {HelperConfig, CodeConstants} from "./HelperConfig.s.sol";
 import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
-import {CodeConstants} from "./HelperConfig.s.sol";
 import {LinkToken} from "../test/mocks/LinkToken.sol";
+import {DevOpsTools} from "lib/foundry-devops/src/DevOpsTools.sol";
 
-contract CreateSubscription is Script, CodeConstants {
+contract CreateSubscription is Script {
     function createSubscriptionUsingConfig() public returns (uint256, address) {
         HelperConfig helperConfig = new HelperConfig();
         address vrfCoordinator = helperConfig.getConfig().vrfCoordinator;
@@ -35,8 +35,8 @@ contract CreateSubscription is Script, CodeConstants {
 }
 
 
-contract FundSubscription is Script {
-    uint256 public constant FUND_AMOUNT = 1 ether; // 1 LINK
+contract FundSubscription is Script, CodeConstants {
+    uint256 public constant FUND_AMOUNT = 5 ether; // 5 LINK
 
     function fundSubscriptionUsingConfig() public {
         HelperConfig helperConfig = new HelperConfig();
@@ -52,7 +52,7 @@ contract FundSubscription is Script {
         console2.log("Funding subscription on chain Id: %s", block.chainid);
         console2.log("Using vrfCoordinator: %s", vrfCoordinator);
 
-        if (block.chainId == LOCAL_CHAIN_ID) {
+        if (block.chainid == LOCAL_CHAIN_ID) {
             vm.startBroadcast();
             VRFCoordinatorV2_5Mock(vrfCoordinator).fundSubscription(subscriptionId, FUND_AMOUNT);
             vm.stopBroadcast();
@@ -62,10 +62,30 @@ contract FundSubscription is Script {
             vm.stopBroadcast();
         }
 
-        console2.log("Subscription funded with 1 ether");
+        console2.log("Subscription funded with 5 LINK");
     }
 
     function run() public {
         fundSubscriptionUsingConfig();
+    }
+}
+
+contract AddConsumer is Script {
+    function addConsumerUsingConfig(address mostRecentlyDeployedRaffleContract) public {
+        HelperConfig helperConfig = new HelperConfig();
+        address vrfCoordinator = helperConfig.getConfig().vrfCoordinator;
+        uint256 subscriptionId = helperConfig.getConfig().subscriptionId;
+        
+        // Add the consumer using the vrfCoordinator...
+        addConsumer(mostRecentlyDeployedRaffleContract ,vrfCoordinator, subscriptionId);
+    }
+
+    function addConsumer(address contractToAddToVrf, address vrfCoordinator, uint256 subscriptionId) public {
+
+    }
+
+    function run() public {
+        address mostRecentlyDeployedRaffleContract = DevOpsTools.get_most_recent_deployment(Raffle, block.chainid);
+        addConsumerUsingConfig(mostRecentlyDeployedRaffleContract);
     }
 }
