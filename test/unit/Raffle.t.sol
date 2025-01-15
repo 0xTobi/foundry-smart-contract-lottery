@@ -46,7 +46,7 @@ contract RaffleTest is Test {
                               ENTER RAFFLE
     //////////////////////////////////////////////////////////////*/
 
-    function testEnterRaffleReverrsWhenYouDontPayEnough() public {
+    function testEnterRaffleRevertsWhenYouDontPayEnough() public {
         // Arrange
         vm.prank(PLAYER);
         vm.expectRevert(Raffle.Raffle__SendMoreToEnterRaffle.selector); // Revert if not enough funds
@@ -154,4 +154,41 @@ contract RaffleTest is Test {
         // Assert
         assert(upkeepNeeded);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                             PERFORM UPKEEP
+    //////////////////////////////////////////////////////////////*/
+
+    function testPerformUpkeepCanOnlyRunIfCheckUpkeepIsTrue() public {
+        // Arrange
+        vm.prank(PLAYER);
+        raffle.enterRaffle{value: entranceFee}();   //Raffle has players, balance and is open
+        vm.warp(block.timestamp + interval + 1);    // Raffle has passed the interval
+        vm.roll(block.number + 1); 
+
+        // Action / Assert
+        raffle.performUpkeep(""); // This should pass
+    }
+
+    function testPerformUpkeepRevertsIfCheckUpkeepIsFalse() public {
+        // Arrange
+        uint256 raffleBalance = 0;
+        uint256 playersCount = 0;
+        Raffle.RaffleState raffleState = raffle.getRaffleState();
+
+        // +Balance +Player +Open -Interval = CheckUpkeep false
+        vm.prank(PLAYER);
+        raffle.enterRaffle{value: entranceFee}();
+        raffleBalance += entranceFee;
+        playersCount += 1;
+
+        // Action / Assert
+        // Using `abi.encodeWithSelector` to call the error message because it takes in some very specific parameters.
+        vm.expectRevert(
+            abi.encodeWithSelector(Raffle.Raffle__UpkeepNotNeeded.selector, raffleBalance, playersCount, raffleState)
+        );
+        raffle.performUpkeep(""); // This should revert
+    }
 }
+
+
