@@ -81,6 +81,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
     /* Events */
     event RaffleEntered(address indexed player);
     event WinnerPicked(address indexed winner);
+    event RequestedRaffleWinner(uint256 indexed requestId);
 
     // The inherited contract "VRFConsumerBaseV2Plus" requires a "vrfCoordinator" parameter in its constructor.
     // We pass the "vrfCoordinator" parameter from our contract's constructor to the parent contract's constructor.
@@ -170,7 +171,10 @@ contract Raffle is VRFConsumerBaseV2Plus {
             numWords: NUM_WORD, // How many random numbers we want to get.
             extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false})) // We don't want to pay for the gas with LINK, we want to pay for the gas with ETH.
         });
-        s_vrfCoordinator.requestRandomWords(request);
+
+        // This returns a requestId
+        uint256 requestId = s_vrfCoordinator.requestRandomWords(request);
+        emit RequestedRaffleWinner(requestId);
     }
 
     function fulfillRandomWords(uint256, /* requestId */ uint256[] calldata randomWords) internal virtual override {
