@@ -7,7 +7,7 @@ import {LinkToken} from "../test/mocks/LinkToken.sol";
 
 abstract contract CodeConstants {
     /* VRF Mock Values */
-    uint96 public MOCK_BASE_FEE = 0.25 ether;
+    uint96 public MOCK_BASE_FEE = 0.1 ether;
     uint96 public MOCK_GAS_PRICE_LINK = 1e9;
 
     // LINK / ETH price
@@ -29,6 +29,7 @@ contract HelperConfig is CodeConstants, Script {
         uint256 subscriptionId;
         uint32 callbackGasLimit;
         address link;
+        address account;
     }
 
     NetworkConfig public localNetworkConfig;
@@ -56,11 +57,12 @@ contract HelperConfig is CodeConstants, Script {
         NetworkConfig memory sepoliaConfig = NetworkConfig({
             entranceFee: 0.01 ether,
             interval: 30,
-            vrfCoordinator: 0x8103B0A8A00be2DDC778e6e7eaa21791Cd364625,
-            gasLane: 0x474e34a077df58807dbe9c96d3c009b23b3c6d0cce433e59bbf5b34f823bc56c,
-            subscriptionId: 20625816270307820467168895400560709740503929598222255067811705985244833017117,
+            vrfCoordinator: 0x9DdfaCa8183c41ad55329BdeeD9F6A8d53168B1B,
+            gasLane: 0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae,
+            subscriptionId: 0,
             callbackGasLimit: 500000,
-            link: 0x779877A7B0D9E8603169DdbD7836e478b4624789
+            link: 0x779877A7B0D9E8603169DdbD7836e478b4624789,
+            account: 0x6f451aB7946458550D97a318927381C51870F587
         });
         return sepoliaConfig;
     }
@@ -85,7 +87,8 @@ contract HelperConfig is CodeConstants, Script {
             gasLane: 0x474e34a077df58807dbe9c96d3c009b23b3c6d0cce433e59bbf5b34f823bc56c,
             subscriptionId: 0,
             callbackGasLimit: 500000,
-            link: address(linkToken)
+            link: address(linkToken),
+            account: 0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38
         });
 
         return localNetworkConfig;

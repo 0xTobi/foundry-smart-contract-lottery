@@ -7,8 +7,9 @@ import {DeployRaffle} from "../../script/DeployRaffle.s.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
+import {CodeConstants} from "../../script/HelperConfig.s.sol";
 
-contract RaffleTest is Test {
+contract RaffleTest is CodeConstants, Test {
     Raffle public raffle;
     HelperConfig public helperConfig;
 
@@ -18,6 +19,7 @@ contract RaffleTest is Test {
     bytes32 gasLane;
     uint256 subscriptionId;
     uint32 callbackGasLimit;
+    address account;
 
     address public PLAYER = makeAddr("player");
     uint256 public STARTING_PLAYER_BALANCE = 100 ether;
@@ -36,6 +38,7 @@ contract RaffleTest is Test {
         gasLane = config.gasLane;
         subscriptionId = config.subscriptionId;
         callbackGasLimit = config.callbackGasLimit;
+        account = config.account;
 
         vm.deal(PLAYER, STARTING_PLAYER_BALANCE);
     }
@@ -218,9 +221,57 @@ contract RaffleTest is Test {
                           FULFILL RANDOMWORDS
     //////////////////////////////////////////////////////////////*/
 
-    function testFulfillRandomWordsCanOnlybeRunAfterPerformUpkeep(uint256 randomRequestId) public raffleEntered {
-        // Arrange / Action / Assert
+    // The tests below require simulating the VRFCoordinator on an actual chain.
+    // These tests will fail if run on a live chain, so we skip them using the skipFork modifier.
+
+    modifier skipFork() {
+        if (block.chainid != LOCAL_CHAIN_ID) {
+            return; // Skip execution if not on the local chain.
+        }
+        _;
+    }
+
+    function testFulfillRandomWordsCanOnlybeRunAfterPerformUpkeep(uint256 randomRequestId)
+        public
+        raffleEntered
+        skipFork
+    {
+        // Ensure fulfillRandomWords cannot be called unless performUpkeep has been executed.
         vm.expectRevert(VRFCoordinatorV2_5Mock.InvalidRequest.selector);
-        VRFCoordinatorV2_5Mock(vrfCoordinator).fulfillRandomWords(randomRequestId, address(raffle));    
+        VRFCoordinatorV2_5Mock(vrfCoordinator).fulfillRandomWords(randomRequestId, address(raffle));
+    }
+
+    function testFulfillRandomWordsPicksAWinnerResetsAndSendsMoney() public raffleEntered skipFork {
+        // Arrange: Add additional entrants to the raffle.
+        uint256 additionalEntrants = 3; // Total players: 4 (1 initial + 3 new)
+        uint256 startingIndex = 1;
+        address expectedWinner = address(1);
+
+        for (uint256 i = startingIndex; i < startingIndex + additionalEntrants; i++) {
+            address newPlayer = address(uint160(i));
+            hoax(newPlayer, 1 ether); // Simulate new player with sufficient balance.
+            raffle.enterRaffle{value: entranceFee}();
+        }
+        uint256 startingTimestamp = raffle.getLastTimeStamp();
+        uint256 winnerStartingBalance = expectedWinner.balance;
+
+        // Act: Perform upkeep and fulfill the random words to pick a winner.
+        vm.recordLogs();
+        raffle.performUpkeep(""); // Trigger the upkeep process.
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        bytes32 requestId = entries[1].topics[1]; // Extract request ID from logs.
+        VRFCoordinatorV2_5Mock(vrfCoordinator).fulfillRandomWords(uint256(requestId), address(raffle));
+
+        // Assert: Verify the winner, raffle state, and prize distribution.
+        address recentWinner = raffle.getRecentWinner();
+        Raffle.RaffleState raffleState = raffle.getRaffleState();
+        uint256 winnerBalance = recentWinner.balance;
+        uint256 endingTimeStamp = raffle.getLastTimeStamp();
+        uint256 winnersPrize = entranceFee * (startingIndex + additionalEntrants);
+
+        assert(recentWinner == expectedWinner); // Ensure the winner is correct.
+        assert(uint256(raffleState) == 0); // Ensure the raffle state is reset to "Open".
+        assert(winnerBalance == winnerStartingBalance + winnersPrize); // Verify prize distribution.
+        assert(endingTimeStamp > startingTimestamp); // Confirm timestamp is updated.
     }
 }
